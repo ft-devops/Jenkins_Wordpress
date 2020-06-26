@@ -11,9 +11,7 @@ pipeline {
             steps {
                 script {
                     app = docker.build("vahram96/php_new")
-                    app.inside {
-                       sh 'echo "all is good"'
-                    }
+                    
                 }
             }
         }
