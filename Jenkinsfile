@@ -1,4 +1,4 @@
-Skip to content
+
 pipeline {
     agent any
     stages {
