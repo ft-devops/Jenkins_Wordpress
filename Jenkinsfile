@@ -43,6 +43,10 @@ pipeline {
                             sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker volume create webconf\""
                             sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker volume create www\""
                             sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker network create wpnet\""
+                        } catch (err) {
+                            echo: 'caught error: $err'
+                        }
+                        try {
                             sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run --name=mysql --network wpnet -e MYSQL_ROOT_PASSWORD='pass1234' -e MYSQL_DATABASE='wordpress' -e MYSQL_USER='wordpress' -e MYSQL_PASSWORD='wp123456789!' -d mariadb\""                                                       
                         } catch (err) {
                             echo: 'caught error: $err'
