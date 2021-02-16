@@ -1,62 +1,87 @@
+
+
 pipeline {
-    agent any
-    stages {
-
-
-        stage('Build Docker Image') {
-            when {
-                branch 'master'
-            }
-            steps {
-                script {
-                    app = docker.build("vahram96/php_new")
-
-                }
-            }
-        }
-        stage('Push Docker Image') {
-            when {
-                branch 'master'
-            }
-            steps {
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker_hub_login') {
-                        app.push("${env.BUILD_NUMBER}")
-                        app.push("latest")
-                    }
-                }
-            }
-        }
-        stage('DeployToProduction') {
-            when {
-                branch 'master'
-            }
-            steps {
-                input 'Deploy to Production?'
-                milestone(1)
-                withCredentials([usernamePassword(credentialsId: 'server_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
-                    script {
-                        sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker pull vahram96/php_new:${env.BUILD_NUMBER}\""
-                        try {
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker rm -f nginx\""
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker rm -f php\""
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker volume create webconf\""
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker volume create www\""
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker network create wpnet\""
-                        } catch (err) {
-                            echo: 'caught error: $err'
-                        }
-                        try {
-                            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run --name=mysql --network wpnet -e MYSQL_ROOT_PASSWORD='pass1234' -e MYSQL_DATABASE='wordpress' -e MYSQL_USER='wordpress' -e MYSQL_PASSWORD='wp123456789!' -d mariadb\""                                                       
-                        } catch (err) {
-                            echo: 'caught error: $err'
-                        }
-                        sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run --restart always --name=php --network wpnet -v webconf:/data -v www:/var/www/html   -d vahram96/php_new:${env.BUILD_NUMBER}\""
-                        sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run --restart always --name=nginx --network wpnet -v webconf:/etc/nginx/conf.d -v www:/var/www/html -p 80:80  -d  nginx\""
-                    }
-                    }
-                }
-            }
-        }
+  agent {
+    kubernetes {
+      defaultContainer 'dind'
+      yaml """\
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          labels:
+            jenkins/kube-default: "true"
+            app: jenkins
+            component: agent
+          namespace: jenkins
+        spec:
+          containers:
+            - name: jnlp
+              image: jenkinsci/jnlp-slave
+              resources:
+                limits:
+                  cpu: 512m
+                  memory: 512Mi
+                requests:
+                  cpu: 200m
+                  memory: 300Mi
+              imagePullPolicy: Always
+              env:
+              - name: POD_IP
+                valueFrom:
+                  fieldRef:
+                    fieldPath: status.podIP
+              - name: DOCKER_HOST
+                value: tcp://localhost:2375
+            - name: dind
+              image: docker:18.05-dind
+              securityContext:
+                privileged: true
+              volumeMounts:
+                - name: dind-storage
+                  mountPath: /var/lib/docker
+          volumes:
+            - name: dind-storage
+              emptyDir: {}
+        """.stripIndent()                    
     }
+  }
 
+  stages {
+
+    stage('Checkout Source') {
+      steps {
+        git url:'https://github.com/Vahram-M96/Jenkins_Wordpress.git', branch:'master'
+      }
+    }
+    
+      stage("Build image") {
+            steps {
+                script {
+                    myapp = docker.build("php_test2")
+                }
+            }
+        }
+      stage("Test image") {
+            steps {
+                sh 'echo "${env.GIT_COMMIT}"'
+            }
+        }
+      stage("Push image") {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'HUB_USER', passwordVariable: 'HUB_TOKEN')]) {                      
+                    sh '''
+                        docker login -u $HUB_USER -p $HUB_TOKEN 
+                        docker image tag  $HUB_USER/php_test2:"${env.GIT_COMMIT}"
+                        docker image push ${HUB_USER}/php_test2:"${env.GIT_COMMIT}"
+                    '''
+                    
+                }
+            }
+        }
+
+    
+ 
+
+  }
+
+}
