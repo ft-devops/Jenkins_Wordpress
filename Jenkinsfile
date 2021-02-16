@@ -71,8 +71,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'HUB_USER', passwordVariable: 'HUB_TOKEN')]) {                      
                     sh '''
                         docker login -u $HUB_USER -p $HUB_TOKEN 
-                        docker image tag php_test2 $HUB_USER/php_test2
-                        docker image push ${HUB_USER}/php_test2
+                        docker image tag php_test2 $HUB_USER/php_test2:"$GIT_COMMIT"
+                        docker image push ${HUB_USER}/php_test2:"$GIT_COMMIT"
                     '''
                     
                 }
