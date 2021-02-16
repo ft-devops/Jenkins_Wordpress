@@ -63,7 +63,7 @@ pipeline {
         }
       stage("Test image") {
             steps {
-                sh 'echo "Image test"'
+                sh 'echo "$GIT_COMMIT"'
             }
         }
       stage("Push image") {
