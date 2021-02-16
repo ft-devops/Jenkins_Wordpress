@@ -63,7 +63,7 @@ pipeline {
         }
       stage("Test image") {
             steps {
-                sh 'echo "${scmVars.GIT_COMMIT}"'
+                sh 'echo "Image test"'
             }
         }
       stage("Push image") {
@@ -71,8 +71,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'HUB_USER', passwordVariable: 'HUB_TOKEN')]) {                      
                     sh '''
                         docker login -u $HUB_USER -p $HUB_TOKEN 
-                        docker image tag php_test2 $HUB_USER/php_test2:"${scmVars.GIT_COMMIT}"
-                        docker image push ${HUB_USER}/php_test2:"${scmVars.GIT_COMMIT}"
+                        docker image tag php_test2 $HUB_USER/php_test2
+                        docker image push ${HUB_USER}/php_test2
                     '''
                     
                 }
